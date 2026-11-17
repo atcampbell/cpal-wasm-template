@@ -1,0 +1,1 @@
+Based on CPAL WASM example with additional params, Lorenz chaotic oscillator and visualisation output https://github.com/RustAudio/cpal/wiki/Setting-up-a-new-CPAL-WASM-project
