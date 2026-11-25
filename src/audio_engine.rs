@@ -1,11 +1,11 @@
 use web_sys::console;
 
-use crate::shared_params::{PointBuffer, SharedParam};
+use crate::shared_params::{Params, PointBuffer};
 use crate::synth::Synth;
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use cpal::{FromSample, SizedSample, Stream};
 
-pub fn start(dt: SharedParam, points: PointBuffer) -> Result<Stream, String> {
+pub fn start(params: Params, points: PointBuffer) -> Result<Stream, String> {
     let host = cpal::default_host();
     let device = host
         .default_output_device()
@@ -14,9 +14,9 @@ pub fn start(dt: SharedParam, points: PointBuffer) -> Result<Stream, String> {
     let config = supported.config();
 
     match supported.sample_format() {
-        cpal::SampleFormat::I16 => build_stream::<i16>(&device, config, dt, points),
-        cpal::SampleFormat::F32 => build_stream::<f32>(&device, config, dt, points),
-        cpal::SampleFormat::U16 => build_stream::<u16>(&device, config, dt, points),
+        cpal::SampleFormat::I16 => build_stream::<i16>(&device, config, params, points),
+        cpal::SampleFormat::F32 => build_stream::<f32>(&device, config, params, points),
+        cpal::SampleFormat::U16 => build_stream::<u16>(&device, config, params, points),
         other => Err(format!("unsupported sample format: {:?}", other)),
     }
 }
@@ -24,7 +24,7 @@ pub fn start(dt: SharedParam, points: PointBuffer) -> Result<Stream, String> {
 fn build_stream<T>(
     device: &cpal::Device,
     config: cpal::StreamConfig,
-    dt: SharedParam,
+    params: Params,
     points: PointBuffer,
 ) -> Result<Stream, String>
 where
@@ -33,7 +33,7 @@ where
     let sample_rate = config.sample_rate as f64;
     let channels = config.channels as usize;
 
-    let mut synth = Synth::new(sample_rate, dt);
+    let mut synth = Synth::new(sample_rate);
 
     let err_fn = |err| console::error_1(&format!("an error occurred on stream: {}", err).into());
 
@@ -41,6 +41,7 @@ where
         .build_output_stream(
             config,
             move |data: &mut [T], _| {
+                synth.apply_params(&params);
                 let mut writer = points.writer();
                 write_data(data, channels, || synth.process(&mut writer));
             },

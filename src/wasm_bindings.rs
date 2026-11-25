@@ -7,7 +7,7 @@
 static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
 
 use crate::audio_engine;
-use crate::shared_params::{PointBuffer, SharedParam};
+use crate::shared_params::{Params, PointBuffer};
 use cpal::Stream;
 use wasm_bindgen::JsValue;
 use wasm_bindgen::prelude::wasm_bindgen;
@@ -28,14 +28,17 @@ pub fn main_js() -> Result<(), JsValue> {
 #[wasm_bindgen]
 pub struct Handle {
     _stream: Stream,
-    dt: SharedParam,
+    params: Params,
     points: PointBuffer,
 }
 
 #[wasm_bindgen]
 impl Handle {
-    pub fn set_dt(&self, dt: f64) {
-        self.dt.set(dt);
+    /// Update one named parameter. Throws in JS if the name is unknown.
+    pub fn set_param(&self, name: &str, value: f64) -> Result<(), JsValue> {
+        self.params
+            .set(name, value)
+            .map_err(|e| JsValue::from_str(&e))
     }
 
     /// Drain every point generated since the last call. The x, y and z
@@ -73,17 +76,18 @@ impl Points {
     }
 }
 
+/// Start the synth. `names[i]` is a parameter name and `values[i]` its
+/// starting value; later updates go through `Handle::set_param`.
 #[wasm_bindgen]
-pub fn beep(dt: f64) -> Result<Handle, JsValue> {
-    let dt = SharedParam::new(dt);
-
+pub fn beep(names: Vec<String>, values: Vec<f64>) -> Result<Handle, JsValue> {
+    let params = Params::new(names, values).map_err(|e| JsValue::from_str(&e))?;
     let points = PointBuffer::new(MAX_POINTS);
     let stream =
-        audio_engine::start(dt.clone(), points.clone()).map_err(|e| JsValue::from_str(&e))?;
+        audio_engine::start(params.clone(), points.clone()).map_err(|e| JsValue::from_str(&e))?;
 
     Ok(Handle {
         _stream: stream,
-        dt,
+        params,
         points,
     })
 }

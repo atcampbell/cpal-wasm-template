@@ -1,5 +1,5 @@
 use crate::lorenz::Lorenz;
-use crate::shared_params::{PointWriter, SharedParam};
+use crate::shared_params::{Params, PointWriter};
 
 const LORENZ_SCALE: f64 = 1.0 / 25.0;
 
@@ -10,19 +10,24 @@ fn to_audio_f32(sample: f64) -> f32 {
 
 pub struct Synth {
     lorenz: Lorenz,
-    dt: SharedParam,
 }
 
 impl Synth {
-    pub fn new(sample_rate: f64, dt: SharedParam) -> Self {
+    pub fn new(_sample_rate: f64) -> Self {
         Synth {
             lorenz: Lorenz::new(),
-            dt,
+        }
+    }
+
+    /// Read the latest parameter values. Called once per audio buffer, so each
+    /// name is looked up once per buffer rather than once per sample.
+    pub fn apply_params(&mut self, params: &Params) {
+        if let Some(dt) = params.get("dt") {
+            self.lorenz.set_dt(dt);
         }
     }
 
     pub fn process(&mut self, writer: &mut PointWriter) -> f32 {
-        self.lorenz.set_dt(self.dt.get());
         self.lorenz.step();
         writer.push(
             self.lorenz.x() as f32,
