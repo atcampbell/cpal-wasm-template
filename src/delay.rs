@@ -7,6 +7,11 @@ pub struct Delay {
     sample_rate: f64,
     write_pos: usize,
     read_pos: usize,
+    balance: f64,
+}
+
+fn crossfade(in1: f64, in2: f64, crossfade: f64) -> f64 {
+    ((1.0 - crossfade) * in1) + (crossfade * in2)
 }
 
 fn ms_to_samps(sample_rate: f64, ms: f64) -> f64 {
@@ -14,7 +19,7 @@ fn ms_to_samps(sample_rate: f64, ms: f64) -> f64 {
 }
 
 impl Delay {
-    pub fn new(sample_rate: f64, ms: f64) -> Delay {
+    pub fn new(sample_rate: f64, ms: f64, balance: f64) -> Delay {
         let buffer_length = ms_to_samps(sample_rate, ms);
 
         let mut buffer = vec![0.0; buffer_length as usize];
@@ -28,16 +33,19 @@ impl Delay {
             buffer,
             ms,
             sample_rate,
+            balance
         }
     }
 
     pub fn process(&mut self, input: f64) -> f64 {
-        let curr = self.buffer[self.read_pos];
-        let err = input + curr * self.feedback;
-        self.buffer[self.read_pos] = err;
+        let curr = self.buffer[self.read_pos] * self.feedback;
+        let out = input + curr;
 
+        self.buffer[self.read_pos] = out;
+
+        let out = crossfade(input, out, self.balance);
         self.read_pos = (self.read_pos + 1) % self.buffer.len();
 
-        err
+        out
     }
 }
