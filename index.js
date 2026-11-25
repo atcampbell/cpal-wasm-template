@@ -13,29 +13,30 @@ import('./pkg').catch(console.error).then((rust_module) => {
 
     const scope = createScope(document.getElementById('scope'), AXIS_RANGE[SCOPE_H], AXIS_RANGE[SCOPE_V]);
 
+    // The synth is created on the first start and then kept: stop pauses the
+    // audio rather than destroying it, so the synth's state survives.
     let handle = null;
-
-    // Freeing the handle drops the Rust `Stream`, which closes its AudioContext.
-    const stop = () => {
-        if (handle != null) {
-            handle.free();
-            handle = null;
-        }
-    };
+    let playing = false;
 
     const play_button = document.getElementById('play');
-    play_button.addEventListener('click', (event) => {
-        // Stop any stream that is already playing, otherwise it is orphaned
-        // (no JS reference left to free it) and keeps playing forever.
-        stop();
-        handle = rust_module.beep(
-            param_inputs.map((input) => input.dataset.param),
-            Float64Array.from(param_inputs, param_value),
-        );
+    play_button.addEventListener('click', () => {
+        if (handle == null) {
+            // Created inside a click because browsers only allow audio to
+            // start from a user gesture.
+            handle = rust_module.start(
+                param_inputs.map((input) => input.dataset.param),
+                Float64Array.from(param_inputs, param_value),
+            );
+            playing = true;
+        } else if (playing) {
+            handle.pause();
+            playing = false;
+        } else {
+            handle.play();
+            playing = true;
+        }
+        play_button.value = playing ? 'stop' : 'start';
     });
-
-    const stop_button = document.getElementById('stop');
-    stop_button.addEventListener('click', stop);
 
     // Every element with a `data-param="name"` attribute in index.html is sent
     // to Rust under that name. An element with the id `<name>-value`, if there
@@ -58,7 +59,7 @@ import('./pkg').catch(console.error).then((rust_module) => {
 
     const animate = () => {
         scope.fade();
-        if (handle != null) {
+        if (handle != null && playing) {
             const points = handle.take_points(); // has .x, .y, .z Float32Arrays
             scope.draw(points[SCOPE_H], points[SCOPE_V]);
             points.free(); // release the Rust-side memory

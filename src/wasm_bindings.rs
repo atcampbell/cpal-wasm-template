@@ -9,6 +9,7 @@ static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
 use crate::audio_engine;
 use crate::shared_params::{Params, PointBuffer};
 use cpal::Stream;
+use cpal::traits::StreamTrait;
 use wasm_bindgen::JsValue;
 use wasm_bindgen::prelude::wasm_bindgen;
 
@@ -27,7 +28,7 @@ pub fn main_js() -> Result<(), JsValue> {
 
 #[wasm_bindgen]
 pub struct Handle {
-    _stream: Stream,
+    stream: Stream,
     params: Params,
     points: PointBuffer,
 }
@@ -39,6 +40,21 @@ impl Handle {
         self.params
             .set(name, value)
             .map_err(|e| JsValue::from_str(&e))
+    }
+
+    /// Resume audio after `pause`. The synth carries on from where it was.
+    pub fn play(&self) -> Result<(), JsValue> {
+        self.stream
+            .play()
+            .map_err(|e| JsValue::from_str(&e.to_string()))
+    }
+
+    /// Suspend audio without destroying the synth, so its state is kept for
+    /// the next `play`.
+    pub fn pause(&self) -> Result<(), JsValue> {
+        self.stream
+            .pause()
+            .map_err(|e| JsValue::from_str(&e.to_string()))
     }
 
     /// Drain every point generated since the last call. The x, y and z
@@ -79,14 +95,14 @@ impl Points {
 /// Start the synth. `names[i]` is a parameter name and `values[i]` its
 /// starting value; later updates go through `Handle::set_param`.
 #[wasm_bindgen]
-pub fn beep(names: Vec<String>, values: Vec<f64>) -> Result<Handle, JsValue> {
+pub fn start(names: Vec<String>, values: Vec<f64>) -> Result<Handle, JsValue> {
     let params = Params::new(names, values).map_err(|e| JsValue::from_str(&e))?;
     let points = PointBuffer::new(MAX_POINTS);
     let stream =
         audio_engine::start(params.clone(), points.clone()).map_err(|e| JsValue::from_str(&e))?;
 
     Ok(Handle {
-        _stream: stream,
+        stream,
         params,
         points,
     })
