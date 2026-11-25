@@ -1,5 +1,5 @@
 [package]
-name = "cpal_wasm_template"
+name = "delay-hysteresis"
 version = "0.1.0"
 edition = "2024"
 
