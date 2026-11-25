@@ -1,3 +1,5 @@
+use crate::dc_block::DcBlock;
+
 const MAX_DELAY_MS: f64 = 5000.0;
 
 pub struct Delay {
@@ -8,6 +10,7 @@ pub struct Delay {
     write_pos: usize,
     read_pos: usize,
     balance: f64,
+    dc_block: DcBlock,
 }
 
 fn crossfade(in1: f64, in2: f64, crossfade: f64) -> f64 {
@@ -27,6 +30,7 @@ impl Delay {
         web_sys::console::error_1(&format!("Delay buffer len samps: {}", buffer.len()).into());
 
         Delay {
+            dc_block: DcBlock::new(sample_rate),
             feedback: 0.8,
             read_pos: 0,
             write_pos: 0,
@@ -38,7 +42,7 @@ impl Delay {
     }
 
     pub fn process(&mut self, input: f64) -> f64 {
-        let curr = self.buffer[self.read_pos] * self.feedback;
+        let curr =  self.dc_block.process(self.buffer[self.read_pos]) * self.feedback;
         let out = input + curr;
 
         self.buffer[self.read_pos] = out;

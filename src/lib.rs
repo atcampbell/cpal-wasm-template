@@ -5,3 +5,4 @@ mod synth;
 mod wasm_bindings;
 mod delay;
 mod channel;
+mod dc_block;
